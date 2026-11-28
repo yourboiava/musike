@@ -32,6 +32,7 @@ export const pt: Messages = {
     tracks: (n) => count(n, "faixa", "faixas"),
     songs: (n) => count(n, "música", "músicas"),
     artists: (n) => count(n, "artista", "artistas"),
+    albums: (n) => count(n, "álbum", "álbuns"),
   },
 
   time: {
@@ -62,6 +63,9 @@ export const pt: Messages = {
   },
 
   home: {
+    discover: "Descobrir",
+    forYou: "Feito para você",
+    saveAsPlaylist: "Salvar como playlist",
     startTitle: "Comece pela busca",
     startBody: "Procure qualquer música ou clipe do YouTube. Toca como áudio ou vídeo, sem anúncios.",
     seeAll: "Ver tudo",
@@ -385,6 +389,7 @@ export const pt: Messages = {
     idleBody:
       "Busque por música, artista ou álbum. Para clipes e ao vivo, use a aba Vídeos. Também dá para colar um link do YouTube.",
     exploreGenres: "Explorar por gênero",
+    exploreMoods: "Moods e momentos",
     albums: "Álbuns",
     artists: "Artistas",
     playlists: "Playlists",

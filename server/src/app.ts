@@ -23,6 +23,9 @@ import {
   genre,
   genreArtists,
   genres,
+  home,
+  moods,
+  weeklyMix,
   searchAlbums,
   searchArtists,
   searchPlaylists,
@@ -403,6 +406,22 @@ export async function startServer(opts: StartOptions = {}): Promise<RunningServe
   // Browse by genre: genre → its artists or all its songs → an artist's top songs
 
   app.get("/api/genres", async (req) => ({ genres: await genres(langOf(req)) }));
+
+  // Discover (Home): the catalog's picks (the same for everyone) and the moods, as in YouTube Music.
+  app.get("/api/home", (req) => home(langOf(req)));
+  app.get("/api/moods", async (req) => ({ moods: await moods(langOf(req)) }));
+
+  /** This person's Weekly Mix (null with an empty library): from their own favorites, history and recent plays. */
+  app.get("/api/weekly-mix", async (req) => {
+    const lib = libOf(req);
+    const [library, top] = await Promise.all([lib.getLibraryLite(), lib.topPlays(Date.now() - 28 * 24 * 3600_000, 30)]);
+    const mix = await weeklyMix(
+      String(req.user?.id ?? DEFAULT_USER),
+      { favorites: library.favorites, history: library.history, top: top.map((p) => p.track) },
+      langOf(req),
+    ).catch(() => null);
+    return { mix };
+  });
 
   app.get("/api/genres/:gid", async (req) => {
     const { gid } = req.params as { gid: string };

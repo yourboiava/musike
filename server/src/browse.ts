@@ -1,6 +1,7 @@
 import type { Innertube } from "youtubei.js";
-import { isLang, msg, type Lang } from "./i18n.js";
-import { artistIdOf, sized, text, toTrack, videoThumbs, withClient } from "./search.js";
+import { config } from "./config.js";
+import { isLang, msg, tr, youtubeLang, type Lang } from "./i18n.js";
+import { artistIdOf, radio, sized, text, toTrack, videoThumbs, withClient } from "./search.js";
 import type { Track } from "./types.js";
 import { ALBUM_ID, ARTIST_ID, HttpError, VIDEO_ID, YT_PLAYLIST_ID } from "./types.js";
 
@@ -182,20 +183,31 @@ function parseKey(key: string): { lang: Lang; id: string } {
   return { lang: isLang(lang) ? lang : "en", id: rest.join("|") };
 }
 
-const genreList = cached(6 * 60 * MINUTE, async (key): Promise<Genre[]> => {
+/** A grid of buttons (genres, or moods) as plain id/name pairs: opened the same way either kind. */
+const buttonList = (grid: any): Genre[] =>
+  itemsOf(grid)
+    .map((b: any) => ({ id: String(b.endpoint?.payload?.params ?? ""), name: text(b.button_text ?? b.title) }))
+    .filter((g: Genre) => GENRE_ID.test(g.id) && g.name);
+
+/**
+ * One page holds both grids ("Moods & moments" then "Genres"): fetched once and split here, so `genres()` and
+ * `moods()` share the same cache instead of asking YouTube twice for the same page.
+ */
+const moodsAndGenres = cached(6 * 60 * MINUTE, async (key): Promise<{ genres: Genre[]; moods: Genre[] }> => {
   const { lang } = parseKey(key);
   const page = await withClient((yt) => browse(yt, { browseId: "FEmusic_moods_and_genres" }), lang).catch(() => {
     throw new HttpError(502, msg("genresUnavailable"));
   });
   const grids = shelvesOf(page);
-  // The page has "moods" then "genres"; match the title in any language, falling back to the last grid.
-  const grid = grids.find((g) => /g[eéê]ne?r/i.test(text(g.header?.title ?? g.title))) ?? grids.at(-1);
-  return itemsOf(grid)
-    .map((b) => ({ id: String(b.endpoint?.payload?.params ?? ""), name: text(b.button_text ?? b.title) }))
-    .filter((g) => GENRE_ID.test(g.id) && g.name);
+  // The page has "moods" then "genres"; match the genres title in any language, falling back to the last grid.
+  const genreGrid = grids.find((g) => /g[eéê]ne?r/i.test(text(g.header?.title ?? g.title))) ?? grids.at(-1);
+  const moodGrid = grids.find((g) => g !== genreGrid) ?? grids[0];
+  return { genres: buttonList(genreGrid), moods: buttonList(moodGrid) };
 });
 
-export const genres = (lang: Lang) => genreList(keyOf(lang));
+export const genres = async (lang: Lang) => (await moodsAndGenres(keyOf(lang))).genres;
+/** A mood opens like a genre: same id shape, same `genre()` page. */
+export const moods = async (lang: Lang) => (await moodsAndGenres(keyOf(lang))).moods;
 
 async function playlistItems(id: string, limit: number, lang: Lang): Promise<any[]> {
   try {
@@ -624,3 +636,192 @@ const ytPlaylistPage = cached(30 * MINUTE, async (key): Promise<YtPlaylistPage> 
 });
 
 export const ytPlaylist = (id: string, lang: Lang) => ytPlaylistPage(keyOf(lang, id));
+
+// ---- Discover (Home) -------------------------------------------------------------------------------------------
+// From Ernani1234/musike#54: the catalog's own picks on Home, for an empty library most of all.
+
+export type HomeSection =
+  | { title: string; kind: "tracks"; items: Track[] }
+  | { title: string; kind: "albums"; items: AlbumCard[] }
+  | { title: string; kind: "playlists"; items: PlaylistCard[] }
+  | { title: string; kind: "artists"; items: ArtistCard[] };
+
+export interface HomeFeed {
+  sections: HomeSection[];
+}
+
+/** "Top artists" (charts): a plain list row, unlike the typed cards of song and playlist shelves. */
+function chartArtist(item: any): ArtistCard | null {
+  const id = item?.endpoint?.payload?.browseId;
+  const name = text(item?.flex_columns?.[0]?.title);
+  if (!ARTIST_ID.test(id ?? "") || !name) return null;
+  return { id, name, info: text(item?.flex_columns?.[1]?.title), ...imagesOf(item) };
+}
+
+/** YouTube Music's own code for the "Global" scope of its charts (its country menu sends this literal). */
+const WORLD_CHART = "ZZ";
+
+/** "IT" -> "Italia" in the request's language; "ZZ" -> a translated "World". */
+function regionName(code: string, lang: Lang): string {
+  if (code === WORLD_CHART) return tr(lang, msg("worldRegion"));
+  try {
+    return new Intl.DisplayNames(youtubeLang(lang), { type: "region" }).of(code) ?? code;
+  } catch {
+    return code;
+  }
+}
+
+/**
+ * The charts page for one country (or "ZZ"). Guest sessions get "Top artists" and "Video charts"; the per-song
+ * chart comes back empty without a signed-in session.
+ */
+async function chartShelves(code: string, lang: Lang): Promise<{ artists: any; videos: any }> {
+  const page = await withClient((yt) => browse(yt, { browseId: "FEmusic_charts", formData: { selectedValues: [code] } }), lang).catch(
+    () => null,
+  );
+  const shelves = page ? shelvesOf(page) : [];
+  return {
+    artists: shelves.find((sh) => itemsOf(sh).some((i: any) => i.item_type === "artist")),
+    videos: shelves.find((sh) => itemsOf(sh).some((i: any) => i.item_type === "playlist")),
+  };
+}
+
+const MAX_HOME_TRACKS = 25;
+const MAX_NEW_RELEASES = 30;
+/** How many moods get their own Home shelf (all of them are in Search). */
+const MOOD_HOME_SHELVES = 3;
+const MAX_MOOD_TRACKS = 40;
+
+/** The first few moods' tracks, each its own shelf, in YouTube Music's order (names come in the app language). */
+async function moodSections(lang: Lang): Promise<HomeSection[]> {
+  const picked = (await moods(lang).catch(() => [] as Genre[])).slice(0, MOOD_HOME_SHELVES);
+  const pages = await Promise.all(picked.map((m) => genre(m.id, lang).catch(() => null)));
+  const sections: HomeSection[] = [];
+  for (const [i, page] of pages.entries()) {
+    if (page?.tracks.length) sections.push({ title: picked[i]!.name, kind: "tracks", items: page.tracks.slice(0, MAX_MOOD_TRACKS) });
+  }
+  return sections;
+}
+
+/**
+ * The catalog's own picks, the same for everyone (no sign-in to YouTube, nothing personal): the guest home feed
+ * (quick picks, curated playlists), new albums, a few moods, and the charts (top artists, video charts) for the
+ * server's region (MUSIKE_LOCATION) and the world. Each source fails on its own: only its shelf goes missing.
+ */
+const homeFeed = cached(15 * MINUTE, async (lang): Promise<HomeFeed> => {
+  const l = lang as Lang;
+  const sections: HomeSection[] = [];
+  const [homePage, releasesPage, ownCharts, worldCharts, moodShelves] = await Promise.all([
+    withClient((yt) => browse(yt, { browseId: "FEmusic_home" }), l).catch(() => null),
+    withClient((yt) => browse(yt, { browseId: "FEmusic_new_releases_albums" }), l).catch(() => null),
+    chartShelves(config.location, l),
+    chartShelves(WORLD_CHART, l),
+    moodSections(l).catch(() => [] as HomeSection[]),
+  ]);
+
+  for (const shelf of homePage ? shelvesOf(homePage) : []) {
+    const title = text(shelf?.header?.title ?? shelf?.title);
+    const items = itemsOf(shelf);
+    if (!title || !items.length) continue;
+    if (items[0]?.item_type === "song") {
+      const tracks = uniqueTracks(items.map((i: any) => toTrack(i, "song"))).slice(0, MAX_HOME_TRACKS);
+      if (tracks.length) sections.push({ title, kind: "tracks", items: tracks });
+    } else if (items[0]?.item_type === "playlist") {
+      const cards = items.map(playlistCard).filter((c: PlaylistCard | null): c is PlaylistCard => !!c);
+      if (cards.length) sections.push({ title, kind: "playlists", items: cards });
+    }
+  }
+
+  if (releasesPage) {
+    const cards = itemsOf(shelvesOf(releasesPage)[0])
+      .map(albumCard)
+      .filter((c: AlbumCard | null): c is AlbumCard => !!c)
+      .slice(0, MAX_NEW_RELEASES);
+    if (cards.length) sections.push({ title: tr(l, msg("newReleasesTitle")), kind: "albums", items: cards });
+  }
+
+  sections.push(...moodShelves);
+
+  // YouTube's own titles ("Top artists", "Video charts") say what the chart is, not where: the region is added.
+  for (const [code, charts] of [
+    [config.location, ownCharts],
+    [WORLD_CHART, worldCharts],
+  ] as const) {
+    const region = regionName(code, l);
+    if (charts.artists) {
+      const base = text(charts.artists.header?.title ?? charts.artists.title);
+      const cards = itemsOf(charts.artists).map(chartArtist).filter((c: ArtistCard | null): c is ArtistCard => !!c);
+      if (base && cards.length) sections.push({ title: `${base} · ${region}`, kind: "artists", items: cards });
+    }
+    if (charts.videos) {
+      const base = text(charts.videos.header?.title ?? charts.videos.title);
+      const cards = itemsOf(charts.videos).map(playlistCard).filter((c: PlaylistCard | null): c is PlaylistCard => !!c);
+      if (base && cards.length) sections.push({ title: `${base} · ${region}`, kind: "playlists", items: cards });
+    }
+  }
+  return { sections };
+});
+
+export const home = (lang: Lang) => homeFeed(lang);
+
+// ---- Weekly Mix -------------------------------------------------------------------------------------------------
+
+/** What a Weekly Mix is made from: one person's library and their recent plays (most played first). */
+export interface MixSource {
+  favorites: Track[];
+  history: Track[];
+  /** Played in the last weeks, most played first. */
+  top: Track[];
+}
+
+const MIX_SEEDS = 6;
+const MAX_MIX = 40;
+
+function sample<T>(arr: T[], n: number): T[] {
+  const copy = [...arr];
+  for (let i = copy.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [copy[i], copy[j]] = [copy[j]!, copy[i]!];
+  }
+  return copy.slice(0, n);
+}
+
+/** Monday of this week (UTC), as a key: the mix is the same all week, a new one on Monday. */
+export function weekOf(now = Date.now()): string {
+  const d = new Date(now);
+  d.setUTCHours(0, 0, 0, 0);
+  d.setUTCDate(d.getUTCDate() - ((d.getUTCDay() + 6) % 7));
+  return d.toISOString().slice(0, 10);
+}
+
+const mixes = new Map<string, Promise<HomeSection | null>>();
+
+/**
+ * A Weekly Mix for one person (`who`: their account): the radio of a few seeds, interleaved, minus everything they
+ * already have or played. Half the seeds are their most played of the last weeks, half picked at random from their
+ * favorites and history, so the mix follows what they listen to now without always the same few songs. Kept for
+ * the week; null with nothing to start from.
+ */
+export function weeklyMix(who: string, source: MixSource, lang: Lang, radioOf = radio): Promise<HomeSection | null> {
+  const key = `${who}|${weekOf()}|${lang}`;
+  const hit = mixes.get(key);
+  if (hit) return hit;
+  const made = (async (): Promise<HomeSection | null> => {
+    const known = new Set([...source.favorites, ...source.history, ...source.top].map((t) => t.id));
+    if (!known.size) return null;
+    const top = source.top.slice(0, MIX_SEEDS * 2);
+    const fromTop = sample(top, Math.min(MIX_SEEDS / 2, top.length));
+    const taken = new Set(fromTop.map((t) => t.id));
+    const pool = [...source.favorites, ...source.history].filter((t) => !taken.has(t.id));
+    const seeds = [...fromTop, ...sample(pool, MIX_SEEDS - fromTop.length)];
+    const lists = await Promise.all(seeds.map((t) => radioOf(t.id).catch(() => [] as Track[])));
+    const tracks = uniqueTracks(roundRobin(lists).filter((t) => !known.has(t.id))).slice(0, MAX_MIX);
+    if (!tracks.length) throw new Error("no mix tracks"); // not kept: tried again next time
+    return { title: tr(lang, msg("weeklyMixTitle")), kind: "tracks", items: tracks };
+  })();
+  mixes.set(key, made);
+  made.catch(() => mixes.get(key) === made && mixes.delete(key));
+  // Last week's mixes go.
+  for (const k of mixes.keys()) if (!k.includes(`|${weekOf()}|`)) mixes.delete(k);
+  return made;
+}

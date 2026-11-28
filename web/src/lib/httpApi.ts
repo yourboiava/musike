@@ -17,29 +17,7 @@ import {
   type TopRange,
   type UserInfo,
 } from "./apiTypes";
-import type {
-  AlbumCard,
-  AlbumPage,
-  ArtistCard,
-  ArtistPage,
-  Discover,
-  Genre,
-  GenreArtist,
-  GenrePage,
-  Library,
-  PlayEntry,
-  Playlist,
-  PlaylistCard,
-  RadioPatch,
-  RecentInput,
-  RecentItem,
-  RecentKind,
-  SavedAlbum,
-  SavedArtist,
-  SavedYtPlaylist,
-  Track,
-  YtPlaylistPage,
-} from "./types";
+import type { AlbumCard, AlbumPage, ArtistCard, ArtistPage, Discover, Genre, GenreArtist, GenrePage, HomeFeed, HomeSection, Library, PlayEntry, Playlist, PlaylistCard, RadioPatch, RecentInput, RecentItem, RecentKind, SavedAlbum, SavedArtist, SavedYtPlaylist, Track, YtPlaylistPage } from "./types";
 
 /**
  * The Musike server over HTTP, as a backend for the app: the web and desktop apps talk to the server they were
@@ -110,6 +88,9 @@ export function httpBackend(opts: HttpBackendOptions) {
       request<{ suggestions: string[] }>(`/api/suggest?q=${encodeURIComponent(q)}`, { signal }).then((r) => r.suggestions),
     radio: (id: string) => request<{ tracks: Track[] }>(`/api/radio/${id}`).then((r) => r.tracks),
     genres: () => request<{ genres: Genre[] }>("/api/genres").then((r) => r.genres),
+    moods: () => request<{ moods: Genre[] }>("/api/moods").then((r) => r.moods),
+    home: (signal?: AbortSignal) => request<HomeFeed>("/api/home", { signal }),
+    weeklyMix: (signal?: AbortSignal) => request<{ mix: HomeSection | null }>("/api/weekly-mix", { signal }).then((r) => r.mix),
     genre: (id: string, signal?: AbortSignal) => request<GenrePage>(`/api/genres/${encodeURIComponent(id)}`, { signal }),
     genreArtists: (id: string, offset: number) =>
       request<{ artists: GenreArtist[]; hasMore: boolean }>(`/api/genres/${encodeURIComponent(id)}/artists?offset=${offset}`),

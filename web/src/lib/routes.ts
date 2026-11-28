@@ -7,6 +7,8 @@ export const paths = {
   artist: (id: string) => `/search/artist/${id}`,
   album: (id: string) => `/search/album/${id}`,
   ytPlaylist: (id: string) => `/search/playlist/${id}`,
+  /** A Discover shelf in full (its items come with the link, from Home). */
+  section: "/discover/section",
   lyrics: "/lyrics",
   library: "/library",
   favorites: "/favorites",

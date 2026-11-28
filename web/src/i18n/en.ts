@@ -35,6 +35,7 @@ export const en = {
     tracks: (n: number) => count(n, "track", "tracks"),
     songs: (n: number) => count(n, "song", "songs"),
     artists: (n: number) => count(n, "artist", "artists"),
+    albums: (n: number) => count(n, "album", "albums"),
   },
 
   time: {
@@ -67,6 +68,9 @@ export const en = {
   },
 
   home: {
+    discover: "Discover",
+    forYou: "Made for you",
+    saveAsPlaylist: "Save as playlist",
     startTitle: "Start with search",
     startBody: "Find any song or music video on YouTube. It plays as audio or video, with no ads.",
     seeAll: "See all",
@@ -391,6 +395,7 @@ export const en = {
     idleBody:
       "Search for a song, artist or album. For music videos and live performances, use the Videos tab. You can also paste a YouTube link.",
     exploreGenres: "Browse by genre",
+    exploreMoods: "Moods and moments",
     albums: "Albums",
     artists: "Artists",
     playlists: "Playlists",

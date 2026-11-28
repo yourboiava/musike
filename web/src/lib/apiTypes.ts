@@ -1,26 +1,4 @@
-import type {
-  AlbumCard,
-  AlbumPage,
-  ArtistCard,
-  ArtistPage,
-  Discover,
-  Genre,
-  GenreArtist,
-  GenrePage,
-  Library,
-  PlayEntry,
-  Playlist,
-  PlaylistCard,
-  RadioPatch,
-  RecentInput,
-  RecentItem,
-  RecentKind,
-  SavedAlbum,
-  SavedArtist,
-  SavedYtPlaylist,
-  Track,
-  YtPlaylistPage,
-} from "./types";
+import type { AlbumCard, AlbumPage, ArtistCard, ArtistPage, Discover, Genre, GenreArtist, GenrePage, HomeFeed, HomeSection, Library, PlayEntry, Playlist, PlaylistCard, RadioPatch, RecentInput, RecentItem, RecentKind, SavedAlbum, SavedArtist, SavedYtPlaylist, Track, YtPlaylistPage } from "./types";
 
 /**
  * What the app needs from a backend. The web app and the desktop app talk to the Musike server over HTTP
@@ -205,6 +183,12 @@ export interface MusikeApi {
   suggest(q: string, signal?: AbortSignal): Promise<string[]>;
   radio(id: string): Promise<Track[]>;
   genres(): Promise<Genre[]>;
+  /** YouTube Music's moods (they open like genres). Missing from older servers. */
+  moods(): Promise<Genre[]>;
+  /** Discover on Home: YouTube Music's picks, the same for everyone. */
+  home(signal?: AbortSignal): Promise<HomeFeed>;
+  /** This person's Weekly Mix, from their library and recent plays; null with nothing to start from. */
+  weeklyMix(signal?: AbortSignal): Promise<HomeSection | null>;
   genre(id: string, signal?: AbortSignal): Promise<GenrePage>;
   genreArtists(id: string, offset: number): Promise<{ artists: GenreArtist[]; hasMore: boolean }>;
   artist(id: string, signal?: AbortSignal): Promise<ArtistPage>;

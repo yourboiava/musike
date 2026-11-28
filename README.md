@@ -77,6 +77,8 @@ Musike started from the idea behind the old Discord music bots: a server that fe
 - **Put things in order:** drag up next in the queue (also the queue of a device you control from Devices: the move happens there), and the tracks of your playlists, made here or saved as a copy (the arrows beside Shuffle, or the playlist's menu > Change the order), by the handle at the start of a row; on a phone you can also hold a row for a moment and then move it
 - **Radio playlist:** starting a radio also makes a playlist of what it queued. Tick the tracks you like, regenerate the others from the radio of the kept ones, and save it with only the ticked tracks when it's right ([how](#radio-playlist))
 - **Import from Spotify:** your Spotify playlists and Liked Songs, exported with Exportify, become Musike playlists and Favorites, each song found on YouTube Music ([how](#importing-from-spotify)). From the [upstream pull request #50](https://github.com/Ernani1234/musike/pull/50), tried here first
+- **Discover on Home:** your **Weekly Mix** (40 new tracks every Monday, from the radio of what you played most in the last four weeks and of your favorites, nothing you already have; per account, and **Save as playlist** keeps one), then YouTube Music's own picks: quick picks, curated playlists, new albums, a few moods, and the top artists and video charts of the server's country (`MUSIKE_LOCATION`) and of the world. Heavy shelves are one tile that opens in full. Off in **Settings > Layout > Home**. From the [upstream pull request #54](https://github.com/Ernani1234/musike/pull/54), with the Weekly Mix per account
+- **Moods** next to the genres in Search (Relax, Workout, Focus...): they open the same way, with their artists and songs
 - Recent searches remember what you opened (song, video, artist, album, playlist), each removable
 - **Share** a track, an album, an artist or a playlist as a YouTube or YouTube Music link (asked once, then in Settings)
 - **Lyrics** from [LRCLIB](https://lrclib.net): timed ones follow the song, line by line, and a line plays from there. They also follow the device being controlled
@@ -88,6 +90,7 @@ Musike started from the idea behind the old Discord music bots: a server that fe
 - **What comes next is ready before its turn:** while a track plays, the next two tracks' audio is fetched into the server's cache, and in Video mode the next video is checked (a clip that can't play gives way to its song's audio) and downloaded in the quality it will play in
 - When YouTube asks to confirm you're not a bot, the track stops and is tried again after 1 and 3 minutes, instead of skipping through the queue; video falls back to audio for a while
 - The loading spinner is a stop button: a track stuck loading can be let go
+- **Windows taskbar:** Favorite, Previous, Play/Pause and Next on the app's thumbnail in the taskbar, also for the device you control. From the [upstream pull request #53](https://github.com/Ernani1234/musike/pull/53)
 - In a narrow window (half a screen) the volume stays reachable: the speaker opens the slider
 
 **Phone**
@@ -657,6 +660,9 @@ Every route answers JSON. Errors look like `{ "error": "message", "code"?: "tool
 | `PUT` | `/api/playlists/:pid/order` | The tracks in a new order (`{ ids }`; ones left out follow in their order) |
 | `POST` | `/api/playlists/radio` | The radio playlist for a radio just started (`{ name, seed, tracks }`, the tracks as queued); the unsaved one there was goes |
 | `PATCH` | `/api/playlists/:pid/radio` | A radio playlist's kept tracks or regenerated tracks (`{ tracks?, kept?, discarded? }`); marks it changed |
+| `GET` | `/api/home` | Discover: YouTube Music's picks for Home (charts, new albums, moods, curated playlists), cached 15 minutes |
+| `GET` | `/api/moods` | YouTube Music's moods (they open as `/api/genres/:gid`) |
+| `GET` | `/api/weekly-mix` | This account's Weekly Mix (`null` with an empty library), the same all week |
 | `POST` | `/api/playlists/:pid/save` | A radio playlist saved as a playlist like the others, with only its kept tracks (409 when none is kept; one saved already is returned as it is) |
 | `PUT` / `DELETE` | `/api/library/artists/:aid` | Saves / removes an artist in the library |
 | `PUT` / `DELETE` | `/api/library/albums/:alid` | Saves / removes an album in the library |

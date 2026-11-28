@@ -197,6 +197,17 @@ export type ArtistShelf =
   | { kind: "playlists"; title: string; playlists: PlaylistCard[] }
   | { kind: "artists"; title: string; artists: ArtistCard[] };
 
+/** A Discover shelf on Home (Ernani1234/musike#54): YouTube Music's picks, or this person's Weekly Mix. */
+export type HomeSection =
+  | { title: string; kind: "tracks"; items: Track[] }
+  | { title: string; kind: "albums"; items: AlbumCard[] }
+  | { title: string; kind: "playlists"; items: PlaylistCard[] }
+  | { title: string; kind: "artists"; items: ArtistCard[] };
+
+export interface HomeFeed {
+  sections: HomeSection[];
+}
+
 /** The profile's "You might also like" and the live performances its artists' pages list. */
 export interface Discover {
   artists: ArtistCard[];

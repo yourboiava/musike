@@ -32,6 +32,7 @@ export const it: Messages = {
     tracks: (n) => count(n, "brano", "brani"),
     songs: (n) => count(n, "brano", "brani"),
     artists: (n) => count(n, "artista", "artisti"),
+    albums: (n) => count(n, "album", "album"),
   },
 
   time: {
@@ -62,6 +63,9 @@ export const it: Messages = {
   },
 
   home: {
+    discover: "Scopri",
+    forYou: "Per te",
+    saveAsPlaylist: "Salva come playlist",
     startTitle: "Inizia con una ricerca",
     startBody: "Trova qualsiasi brano o video musicale su YouTube. Viene riprodotto come audio o video, senza pubblicità.",
     seeAll: "Vedi tutto",
@@ -378,6 +382,7 @@ export const it: Messages = {
     idleBody:
       "Cerca un brano, un artista o un album. Per i video musicali e i live, usa la scheda Video. Puoi anche incollare un link di YouTube.",
     exploreGenres: "Esplora per genere",
+    exploreMoods: "Mood e momenti",
     albums: "Album",
     artists: "Artisti",
     playlists: "Playlist",

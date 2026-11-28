@@ -10,6 +10,9 @@ import {
   genre as genrePage,
   genreArtists,
   genres,
+  home,
+  moods,
+  weeklyMix,
   searchAlbums,
   searchArtists,
   searchPlaylists,
@@ -87,6 +90,13 @@ function phoneApi(lib: library.LibraryStore): MusikeApi {
   suggest: (q, signal) => call(() => suggestions(q.trim().slice(0, 100), getLang()).catch(() => []), signal),
   radio: (id) => call(() => radio(id)),
   genres: () => call(() => genres(getLang())),
+  moods: () => call(() => moods(getLang())),
+  home: (signal) => call(() => home(getLang()), signal),
+  weeklyMix: (signal) =>
+    call(async () => {
+      const [l, top] = await Promise.all([lib.getLibraryLite(), lib.topPlays(Date.now() - 28 * 24 * 3600_000, 30)]);
+      return weeklyMix("phone", { favorites: l.favorites, history: l.history, top: top.map((p) => p.track) }, getLang()).catch(() => null);
+    }, signal),
   genre: (id, signal) =>
     call(async () => {
       if (!GENRE_ID.test(id)) throw fail(400, "invalidGenre");

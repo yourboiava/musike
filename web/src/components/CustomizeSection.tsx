@@ -123,6 +123,7 @@ export function LayoutSection() {
     ["homeShortcuts", t.customize.homeShortcuts],
     ["homeRecent", t.nav.recentlyPlayed],
     ["homeFavorites", t.home.yourFavorites],
+    ["homeDiscover", t.home.discover],
   ] as const;
 
   return (

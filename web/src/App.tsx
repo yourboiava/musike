@@ -34,6 +34,7 @@ import Artist from "./views/Artist";
 import BatchSearch from "./views/BatchSearch";
 import Collection from "./views/Collection";
 import Genre from "./views/Genre";
+import SectionDetail from "./views/SectionDetail";
 import Home from "./views/Home";
 import Library from "./views/Library";
 import Profile from "./views/Profile";
@@ -203,6 +204,7 @@ export default function App() {
               <Route path="/search/artist/:id" element={<Artist />} />
               <Route path="/search/album/:id" element={<Album />} />
               <Route path="/search/playlist/:id" element={<YtPlaylist />} />
+              <Route path="/discover/section" element={<SectionDetail />} />
               <Route path={paths.lyrics} element={<LyricsPage />} />
               <Route path={paths.library} element={<Library />} />
               <Route path={paths.profile} element={<Profile />} />

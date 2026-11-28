@@ -11,6 +11,8 @@ export interface Appearance {
   homeShortcuts: boolean;
   homeRecent: boolean;
   homeFavorites: boolean;
+  /** Discover on Home: the Weekly Mix and YouTube Music's picks. */
+  homeDiscover: boolean;
   /** The name in Home's greeting ("Good morning, Ava"): empty is the account's, or none on the phone on its own. */
   greetName: string;
 }
@@ -27,6 +29,7 @@ export const DEFAULT_APPEARANCE: Appearance = {
   homeShortcuts: true,
   homeRecent: true,
   homeFavorites: true,
+  homeDiscover: true,
   greetName: "",
 };
 
