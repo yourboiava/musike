@@ -1,8 +1,10 @@
 import { CheckIcon, PaletteIcon } from "@phosphor-icons/react";
+import { useEffect, useState } from "react";
 import { useT } from "../i18n";
 import { inkFor } from "../lib/accent";
 import { cn } from "../lib/format";
-import { ACCENTS, useAppearance } from "../stores/appearance";
+import { ACCENTS, GREET_NAME_MAX, useAppearance } from "../stores/appearance";
+import { useAuth } from "../stores/auth";
 import { useUi } from "../stores/ui";
 
 /** Ready-made accent swatches plus any colour from the system picker. */
@@ -84,6 +86,32 @@ function SwitchRow({ label, body, checked, onChange }: { label: string; body?: s
   );
 }
 
+/** The name in Home's greeting: optional, the account's when empty. Saved when leaving the field. */
+function GreetName() {
+  const t = useT();
+  const saved = useAppearance((s) => s.greetName);
+  const account = useAuth((s) => s.user?.username ?? "");
+  const [value, setValue] = useState(saved);
+  useEffect(() => setValue(saved), [saved]);
+  const save = () => useAppearance.getState().set({ greetName: value });
+  return (
+    <label className="flex flex-col gap-1.5">
+      <span className="sr-only">{t.customize.greetName}</span>
+      <input
+        value={value}
+        maxLength={GREET_NAME_MAX}
+        onChange={(e) => setValue(e.target.value)}
+        onBlur={save}
+        onKeyDown={(e) => e.key === "Enter" && (e.currentTarget as HTMLInputElement).blur()}
+        placeholder={account ? t.customize.greetNameAccount(account) : t.customize.greetNamePlaceholder}
+        aria-label={t.customize.greetName}
+        className="h-10 rounded-[12px] bg-surface-1 px-3.5 text-sm ring-1 ring-line outline-none placeholder:text-fg-3 focus:ring-accent"
+      />
+      <span className="text-xs text-fg-3">{t.customize.greetNameHint}</span>
+    </label>
+  );
+}
+
 /** What the app shows: panels, sidebar, list columns and the Home sections. */
 export function LayoutSection() {
   const t = useT();
@@ -114,6 +142,7 @@ export function LayoutSection() {
       </div>
 
       <p className="pt-2 text-[13px] text-fg-2">{t.customize.home}</p>
+      <GreetName />
       <div className="flex flex-wrap gap-2">
         {homeSections.map(([key, label]) => (
           <button

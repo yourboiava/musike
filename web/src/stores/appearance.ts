@@ -11,7 +11,12 @@ export interface Appearance {
   homeShortcuts: boolean;
   homeRecent: boolean;
   homeFavorites: boolean;
+  /** The name in Home's greeting ("Good morning, Ava"): empty is the account's, or none on the phone on its own. */
+  greetName: string;
 }
+
+/** The longest name the greeting takes. */
+export const GREET_NAME_MAX = 40;
 
 export const DEFAULT_APPEARANCE: Appearance = {
   accent: DEFAULT_ACCENT,
@@ -22,6 +27,7 @@ export const DEFAULT_APPEARANCE: Appearance = {
   homeShortcuts: true,
   homeRecent: true,
   homeFavorites: true,
+  greetName: "",
 };
 
 /** Ready-made accents. "volt" is Musike's own. */
@@ -46,8 +52,9 @@ export function cleanAppearance(input: unknown): Appearance {
   const out: Appearance = { ...DEFAULT_APPEARANCE };
   if (isHex(v.accent)) out.accent = v.accent.toLowerCase();
   for (const k of Object.keys(DEFAULT_APPEARANCE) as (keyof Appearance)[]) {
-    if (k !== "accent" && typeof v[k] === "boolean") (out[k] as boolean) = v[k];
+    if (typeof DEFAULT_APPEARANCE[k] === "boolean" && typeof v[k] === "boolean") (out[k] as boolean) = v[k];
   }
+  if (typeof v.greetName === "string") out.greetName = v.greetName.replace(/\s+/g, " ").trim().slice(0, GREET_NAME_MAX);
   return out;
 }
 

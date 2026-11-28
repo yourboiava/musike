@@ -11,6 +11,7 @@ import { paths } from "../lib/routes";
 import type { Track } from "../lib/types";
 import { usePlayer } from "../player/player";
 import { useAppearance } from "../stores/appearance";
+import { useAuth } from "../stores/auth";
 import { useLibrary } from "../stores/library";
 
 function Shortcut({ to, label, tracks, cover }: { to: string; label: string; tracks: Track[]; cover: ReactNode }) {
@@ -72,13 +73,18 @@ export default function Home() {
   const t = useT();
   const show = useAppearance();
   const empty = status === "ready" && !favorites.length && !playlists.length && !history.length;
+  // "Good evening, Ava": the name set in Settings, else the account's; on the phone on its own, none unless set.
+  const account = useAuth((s) => s.user?.username ?? "");
+  const name = show.greetName || account;
+  const hello = t.time.greeting(new Date().getHours());
+  const greeting = name ? t.time.greetingName(hello, name) : hello;
 
   return (
     <div className="pb-8">
       <PageHeader />
 
       <div className="px-4 pt-2 pb-6 md:px-6 md:pt-8">
-        <h1 className="text-[28px] leading-tight font-semibold tracking-tight md:text-4xl">{t.time.greeting(new Date().getHours())}</h1>
+        <h1 className="text-[28px] leading-tight font-semibold tracking-tight md:text-4xl">{greeting}</h1>
       </div>
 
       {status === "loading" && <TrackListSkeleton rows={6} />}

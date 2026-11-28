@@ -35,7 +35,8 @@ export const it: Messages = {
   },
 
   time: {
-    greeting: (hour) => (hour < 5 ? "Buonanotte" : hour < 12 ? "Buongiorno" : hour < 18 ? "Buon pomeriggio" : "Buonasera"),
+    greeting: (hour) => (hour < 5 || hour >= 23 ? "Buonanotte" : hour < 12 ? "Buongiorno" : hour < 18 ? "Buon pomeriggio" : "Buonasera"),
+    greetingName: (greeting, name) => `${greeting}, ${name}`,
     total: (seconds) => {
       const m = Math.round(seconds / 60);
       return m < 60 ? `${m} min` : `${Math.floor(m / 60)} h ${m % 60} min`;
@@ -540,6 +541,10 @@ export const it: Messages = {
     texture: "Texture di sfondo",
     home: "Pagina iniziale",
     homeShortcuts: "Scorciatoie",
+    greetName: "Nome nel saluto",
+    greetNamePlaceholder: "Il tuo nome (facoltativo)",
+    greetNameAccount: (account) => `Il tuo nome (vuoto: ${account})`,
+    greetNameHint: "La pagina iniziale ti saluta con questo: \"Buonasera, Ava\". Vuoto: niente nome, o quello dell'account col server.",
     reset: "Ripristina predefiniti",
   },
 

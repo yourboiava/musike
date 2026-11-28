@@ -39,7 +39,8 @@ export const en = {
 
   time: {
     greeting: (hour: number): string =>
-      hour < 5 ? "Good night" : hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening",
+      hour < 5 || hour >= 23 ? "Good night" : hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening",
+    greetingName: (greeting: string, name: string) => `${greeting}, ${name}`,
     /** Total length of a list, e.g. "1 hr 5 min". */
     total: (seconds: number) => {
       const m = Math.round(seconds / 60);
@@ -546,6 +547,10 @@ export const en = {
     texture: "Background texture",
     home: "Home page",
     homeShortcuts: "Shortcuts",
+    greetName: "Name in the greeting",
+    greetNamePlaceholder: "Your name (optional)",
+    greetNameAccount: (account: string) => `Your name (empty: ${account})`,
+    greetNameHint: "Home says hello with it: \"Good evening, Ava\". Empty: no name, or the account's with a server.",
     reset: "Reset to defaults",
   },
 

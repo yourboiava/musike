@@ -36,6 +36,7 @@ export const pt: Messages = {
 
   time: {
     greeting: (hour) => (hour < 5 ? "Boa madrugada" : hour < 12 ? "Bom dia" : hour < 18 ? "Boa tarde" : "Boa noite"),
+    greetingName: (greeting, name) => `${greeting}, ${name}`,
     total: (seconds) => {
       const m = Math.round(seconds / 60);
       return m < 60 ? `${m} min` : `${Math.floor(m / 60)} h ${m % 60} min`;
@@ -540,6 +541,10 @@ export const pt: Messages = {
     texture: "Textura de fundo",
     home: "Página inicial",
     homeShortcuts: "Atalhos",
+    greetName: "Nome na saudação",
+    greetNamePlaceholder: "Seu nome (opcional)",
+    greetNameAccount: (account) => `Seu nome (vazio: ${account})`,
+    greetNameHint: "O Início cumprimenta você com ele: \"Boa noite, Ava\". Vazio: sem nome, ou o da conta com um servidor.",
     reset: "Restaurar padrão",
   },
 
