@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { desktop } from "../lib/desktop";
 import type { Track } from "../lib/types";
+import { isTvMode } from "../tv/tvMode";
 
 export interface ToastAction {
   label: string;
@@ -62,6 +63,9 @@ interface UiState {
   setTheater: (open: boolean) => void;
 }
 
+/** The docked Now Playing column: wide screens, not a TV (where Now Playing is a full screen of its own). */
+const docked = () => !isTvMode() && window.matchMedia("(min-width: 1280px)").matches;
+
 const readTheme = (): Theme => (document.documentElement.dataset.theme === "light" ? "light" : "dark");
 const readPanel = (): boolean => {
   try {
@@ -100,13 +104,14 @@ export const useUi = create<UiState>((set, get) => ({
   toggleTheme: () => get().setTheme(get().theme === "dark" ? "light" : "dark"),
 
   openPanel: (panelTab) => {
-    if (window.matchMedia("(min-width: 1280px)").matches) set({ panelOpen: true, panelTab });
+    if (docked()) set({ panelOpen: true, panelTab });
     else set({ drawerOpen: true, panelTab });
   },
   togglePanel: (tab) => {
     const { panelOpen, drawerOpen, panelTab } = get();
-    // ≥1280px the panel is a docked column (remembered); below it is a temporary drawer.
-    if (!window.matchMedia("(min-width: 1280px)").matches) {
+    // ≥1280px the panel is a docked column (remembered); below it, and on a TV, a temporary drawer (a full screen
+    // on the TV).
+    if (!docked()) {
       return set({ drawerOpen: !(drawerOpen && panelTab === tab), panelTab: tab });
     }
     const open = !(panelOpen && panelTab === tab);

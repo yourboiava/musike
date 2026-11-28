@@ -36,22 +36,22 @@ html[data-tv="1"] ::-webkit-scrollbar {
 /* ---- left rail (sidebar) -------------------------------------------------
    The rail is a fixed 78px column: icons must stay square, centred and never
    overlap, so the global min-size rules are undone here. */
-html[data-tv="1"] aside.island {
+html[data-tv="1"] aside[data-rail] {
   min-width: 84px !important;
   width: 84px !important;
 }
 
-html[data-tv="1"] aside.island > div {
+html[data-tv="1"] aside[data-rail] > div {
   padding-block: 6px;
 }
 
-html[data-tv="1"] aside.island nav {
+html[data-tv="1"] aside[data-rail] nav {
   gap: 8px !important;
   padding-inline: 12px !important;
 }
 
-html[data-tv="1"] aside.island button,
-html[data-tv="1"] aside.island a {
+html[data-tv="1"] aside[data-rail] button,
+html[data-tv="1"] aside[data-rail] a {
   min-width: 0 !important;
   min-height: 0 !important;
   width: 100% !important;
@@ -64,22 +64,22 @@ html[data-tv="1"] aside.island a {
   border-radius: 14px;
 }
 
-html[data-tv="1"] aside.island button svg,
-html[data-tv="1"] aside.island a svg {
+html[data-tv="1"] aside[data-rail] button svg,
+html[data-tv="1"] aside[data-rail] a svg {
   width: 22px !important;
   height: 22px !important;
   flex: none;
 }
 
 /* The rail never scales on focus: a lifted row would touch its neighbours. */
-html[data-tv="1"] aside.island :focus {
+html[data-tv="1"] aside[data-rail] :focus {
   transform: none;
   box-shadow: 0 0 0 3px var(--tv-ring-soft) !important;
   outline-offset: 0 !important;
 }
 
 /* logo mark */
-html[data-tv="1"] aside.island .size-8 {
+html[data-tv="1"] aside[data-rail] .size-8 {
   width: 26px !important;
   height: 26px !important;
 }
@@ -119,7 +119,7 @@ html[data-tv="1"] input[type="text"] {
 /* ---- dialogs / sheets ----------------------------------------------------
    On TV a sheet is a centred panel with its own scrolling; navigation is
    trapped inside it by tvMode.ts while it is open. */
-html[data-tv="1"] [role="dialog"] {
+html[data-tv="1"] [role="dialog"]:not([data-tv-now-playing]) {
   max-width: min(1100px, 78vw) !important;
   max-height: 80vh !important;
   overflow-y: auto !important;
@@ -150,11 +150,11 @@ html[data-tv="1"] [role="dialog"] ul {
    46px above while their tile kept its size (57px at the TV font size), so
    each tile painted over the next one. The rows keep their height and the
    list scrolls (focus brings the row into view); the tile fits the row. */
-html[data-tv="1"] aside.island .scroll-area > a {
+html[data-tv="1"] aside[data-rail] .scroll-area > a {
   flex-shrink: 0;
 }
 
-html[data-tv="1"] aside.island .scroll-area > a > span:first-child {
+html[data-tv="1"] aside[data-rail] .scroll-area > a > span:first-child {
   width: 38px !important;
   height: 38px !important;
   border-radius: 11px;
@@ -164,30 +164,30 @@ html[data-tv="1"] aside.island .scroll-area > a > span:first-child {
    leave the collection almost no room. Tighter rows there, so at least two
    collection rows show and the rest scroll. */
 @media (max-height: 600px) {
-  html[data-tv="1"] aside.island > div > div:first-child {
+  html[data-tv="1"] aside[data-rail] > div > div:first-child {
     height: 40px !important;
   }
 
-  html[data-tv="1"] aside.island nav {
+  html[data-tv="1"] aside[data-rail] nav {
     gap: 4px !important;
   }
 
-  html[data-tv="1"] aside.island nav a,
-  html[data-tv="1"] aside.island .scroll-area > a {
+  html[data-tv="1"] aside[data-rail] nav a,
+  html[data-tv="1"] aside[data-rail] .scroll-area > a {
     height: 40px !important;
   }
 
-  html[data-tv="1"] aside.island .scroll-area > a > span:first-child {
+  html[data-tv="1"] aside[data-rail] .scroll-area > a > span:first-child {
     width: 32px !important;
     height: 32px !important;
     border-radius: 10px;
   }
 
-  html[data-tv="1"] aside.island > div > div:last-child {
+  html[data-tv="1"] aside[data-rail] > div > div:last-child {
     padding-block: 4px;
   }
 
-  html[data-tv="1"] aside.island > div > div:last-child button {
+  html[data-tv="1"] aside[data-rail] > div > div:last-child button {
     height: 40px !important;
   }
 }

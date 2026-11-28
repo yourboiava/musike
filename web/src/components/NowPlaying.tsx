@@ -29,6 +29,7 @@ import { IconButton } from "./IconButton";
 import { LyricsView, useLyricsNavigation } from "./Lyrics";
 import { QueueList } from "./Queue";
 import { SLOT, VideoSlot } from "./Video";
+import { isTvMode } from "../tv/tvMode";
 
 /** Artwork or the live video, with a soft ambient glow from the cover behind it. */
 function Stage({ track, slot, className }: { track: Track; slot: number; className?: string }) {
@@ -231,12 +232,13 @@ function PanelTabs({ tab, showLyrics, onTab }: { tab: PanelTab; showLyrics: bool
   );
 }
 
-/** Docked right column (≥1280px). */
+/** Docked right column (≥1280px). On a TV Now Playing is a full screen of its own instead (TvNowPlaying). */
 export function SidePanel() {
   const { tab, showLyrics } = usePanelTab();
   const openPanel = useUi((s) => s.openPanel);
   const togglePanel = useUi((s) => s.togglePanel);
   const t = useT();
+  if (isTvMode()) return null;
   return (
     <aside className="island hidden w-[360px] shrink-0 xl:flex" aria-label={t.nowPlaying.panel}>
       <div className="island-core flex w-full flex-col overflow-hidden">
@@ -254,7 +256,88 @@ export function SidePanel() {
   );
 }
 
-/** Same content as an overlay drawer for tablets and small laptops (768-1279px). */
+/**
+ * Android TV: Now Playing fills the screen, read from the sofa. On the left the cover (or the video), the title and
+ * the controls; on the right the queue or the lyrics, large. Opened by everything that opens the panel elsewhere
+ * (the cover in the player bar, Queue, Lyrics); Back closes it. The D-pad stays inside (it's a dialog).
+ */
+function TvNowPlaying({ tab, onTab, onClose }: { tab: PanelTab; onTab: (t: PanelTab) => void; onClose: () => void }) {
+  const track = usePlayer(selectShown);
+  const queue = usePlayer(selectShownQueue);
+  const t = useT();
+  const side: PanelTab = tab === "lyrics" ? "lyrics" : "queue";
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label={t.nowPlaying.panel}
+      data-escape-closes
+      data-tv-now-playing
+      className="fixed inset-0 z-40 overflow-hidden bg-bg"
+    >
+      {track && (
+        <img src={track.thumb} alt="" aria-hidden="true" className="absolute inset-0 size-full scale-125 object-cover opacity-25 blur-[80px]" />
+      )}
+      <div className="relative grid h-full grid-cols-[minmax(0,5fr)_minmax(0,6fr)] gap-8 px-10 py-6">
+        <div className="flex min-h-0 flex-col justify-center gap-3">
+          {track ? (
+            <>
+              {/* Sized to the screen's height: cover, title, bar, controls and the last row fit in 540 px. */}
+              <Stage track={track} slot={SLOT.panel} className={track.kind === "video" ? "w-full" : "!w-[36vh]"} />
+              <TrackHeading track={track} large />
+              <Scrubber />
+              {/* The D-pad starts on Play/Pause (tvMode.ts focuses [data-tv-autofocus]): OK pauses, Left/Right reach the rest. */}
+              <Transport big tvAutofocus />
+              <div className="flex items-center justify-center gap-3">
+                <ModeSwitch compact />
+                <button
+                  type="button"
+                  onClick={() => startRadio(track)}
+                  className="flex h-10 items-center gap-2 rounded-full bg-surface-1 px-4 text-sm font-medium whitespace-nowrap ring-1 ring-line"
+                >
+                  <RadioIcon size={18} /> {t.trackMenu.startRadio}
+                </button>
+              </div>
+            </>
+          ) : (
+            <p className="text-center text-lg text-fg-2">{t.nowPlaying.playSomething}</p>
+          )}
+        </div>
+        <div className="flex min-h-0 flex-col rounded-[24px] bg-surface-1/70 ring-1 ring-line backdrop-blur-md">
+          <div className="flex h-16 shrink-0 items-center justify-between px-4">
+            <div role="tablist" className="flex gap-1">
+              {(
+                [
+                  ["queue", `${t.nowPlaying.tabQueue}${queue.length ? ` · ${queue.length}` : ""}`],
+                  ["lyrics", t.nowPlaying.tabLyrics],
+                ] as const
+              ).map(([id, label]) => (
+                <button
+                  key={id}
+                  role="tab"
+                  type="button"
+                  aria-selected={side === id}
+                  onClick={() => onTab(id)}
+                  className={cn("h-10 rounded-full px-5 text-base font-medium whitespace-nowrap", side === id ? "bg-surface-4 text-fg" : "text-fg-2")}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+            <IconButton label={t.common.close} size="md" onClick={onClose}>
+              <XIcon size={22} />
+            </IconButton>
+          </div>
+          <div className="scroll-area min-h-0 flex-1 overflow-y-auto px-3 pb-3 text-base">
+            <PanelBody tab={side} slot={SLOT.panel} />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** Same content as an overlay drawer for tablets and small laptops (768-1279px); on a TV, a full screen. */
 export function PanelDrawer() {
   const open = useUi((s) => s.drawerOpen);
   const { tab, showLyrics } = usePanelTab();
@@ -269,6 +352,8 @@ export function PanelDrawer() {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [open, close]);
+
+  if (isTvMode()) return createPortal(open ? <TvNowPlaying tab={tab} onTab={openPanel} onClose={close} /> : null, document.body);
 
   return createPortal(
     <AnimatePresence>

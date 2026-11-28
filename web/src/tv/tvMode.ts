@@ -166,7 +166,8 @@ function watchDialogs() {
       lastOutside = document.activeElement instanceof HTMLElement ? document.activeElement : null;
       current = dialog;
       window.setTimeout(() => {
-        const first = focusables()[0];
+        // The dialog's own starting point if it names one (Now Playing: Play/Pause), else its first control.
+        const first = dialog.querySelector<HTMLElement>("[data-tv-autofocus]") ?? focusables()[0];
         if (first) first.focus({ preventScroll: true });
       }, 60);
     } else {

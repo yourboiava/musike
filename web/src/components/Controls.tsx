@@ -47,7 +47,7 @@ export function PlayPauseIcon({ size = 22 }: { size?: number }) {
   return status === "playing" ? <PauseIcon size={size} weight="fill" /> : <PlayIcon size={size} weight="fill" />;
 }
 
-export function Transport({ big = false }: { big?: boolean }) {
+export function Transport({ big = false, tvAutofocus = false }: { big?: boolean; tvAutofocus?: boolean }) {
   const t = useT();
   const p = usePlayer(
     useShallow((s) => ({
@@ -86,6 +86,7 @@ export function Transport({ big = false }: { big?: boolean }) {
       <PlayDisc
         label={p.status === "loading" ? t.common.stopLoading : p.status === "playing" ? t.common.pause : t.common.play}
         className="group/play"
+        data-tv-autofocus={tvAutofocus || undefined}
         px={big ? 72 : 40}
         onClick={p.toggle}
         disabled={!hasTrack}

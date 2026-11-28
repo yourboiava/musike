@@ -108,7 +108,7 @@ export function Rail() {
   const [creating, setCreating] = useState(false);
 
   return (
-    <aside className="island hidden w-[78px] shrink-0 md:flex wide:w-[256px]">
+    <aside data-rail className="island hidden w-[78px] shrink-0 md:flex wide:w-[256px]">
       <div className="island-core flex w-full flex-col overflow-hidden">
         <div className="flex h-16 items-center justify-center wide:justify-start wide:px-4 [@media(max-height:540px)]:h-12">
           <LogoMark className="size-8 text-accent-text wide:hidden" />

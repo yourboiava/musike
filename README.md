@@ -185,7 +185,7 @@ Setting up `https://`:
 - Same app as on the computer: search, genres, artists, albums, Search a list, playlists, favorites, themes and colors
 - Keeps playing with the screen off, with controls in the notification, on the lock screen and on headphones; pauses for calls and when headphones are unplugged
 - **iPhone:** the same app for iOS, sideloaded with your own Apple ID (original Musike only)
-- **Android TV:** the same app appears in the TV launcher and switches to a bigger interface you navigate with the remote
+- **Android TV:** the same app appears in the TV launcher and switches to a bigger interface you navigate with the remote. **Now Playing** fills the screen: the cover (or the video), the title and the controls on the left, the queue or the lyrics on the right, large enough to read from the sofa. Select the cover in the player bar to open it, Back closes it
 - On its own, audio only. The Android app of this fork, connected to a Musike server, plays video too
 
 **Self-hosting**
