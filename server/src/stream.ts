@@ -22,6 +22,13 @@ const HOLD_POLL_MS = 500;
 const HOLD_MIN_MS = 15_000;
 const HOLD_MAX_MS = 60_000;
 
+/**
+ * A track that takes longer than this to start is logged as a warning (seen with the default LOG_LEVEL), with where
+ * the time went: resolving it (yt-dlp, or the direct audio) or YouTube's answer, held back included. Behind a VPN
+ * YouTube holds streams back far more often than on a home connection.
+ */
+const SLOW_START_MS = 3000;
+
 /** Until when a 403 is retried on this URL. */
 function holdDeadline(fmt: StreamFormat): number {
   const now = Date.now();
@@ -34,14 +41,23 @@ function holdDeadline(fmt: StreamFormat): number {
  * googlevideo URLs are bound to the IP that resolved them, so the bytes must flow through this server.
  */
 export async function proxyStream(req: FastifyRequest, reply: FastifyReply, id: string, kind: "audio" | "video") {
+  const started = Date.now();
+  const spent = { resolveMs: 0, youtubeMs: 0, heldMs: 0 };
+  const steps: string[] = [];
   const pick = async (fresh: boolean): Promise<StreamFormat> => {
-    // First try: the quickest audio source configured. After a refusal: a fresh yt-dlp resolution.
-    if (kind === "audio" && !fresh) return resolveAudio(id);
-    if (fresh) invalidate(id);
-    const resolved = await resolveStreams(id);
-    const fmt = kind === "audio" ? resolved.audio : resolved.video;
-    if (!fmt) throw new HttpError(404, msg("noSdVideo"));
-    return fmt;
+    const t = Date.now();
+    try {
+      // First try: the quickest audio source configured. After a refusal: a fresh yt-dlp resolution.
+      if (kind === "audio" && !fresh) return await resolveAudio(id);
+      if (fresh) invalidate(id);
+      const resolved = await resolveStreams(id);
+      const fmt = kind === "audio" ? resolved.audio : resolved.video;
+      if (!fmt) throw new HttpError(404, msg("noSdVideo"));
+      return fmt;
+    } finally {
+      spent.resolveMs += Date.now() - t;
+      steps.push(fresh ? "resolved again" : "resolved");
+    }
   };
 
   const controller = new AbortController();
@@ -58,16 +74,21 @@ export async function proxyStream(req: FastifyRequest, reply: FastifyReply, id: 
 
   /** Requests the URL, retrying while YouTube answers 403 (held back). */
   const fetchServed = async (fmt: StreamFormat) => {
-    const started = Date.now();
+    const asked = Date.now();
     const deadline = holdDeadline(fmt);
     let res = await request(fmt);
+    let heldSince = 0;
     while (res.status === 403 && Date.now() < deadline) {
+      heldSince ||= Date.now();
       await res.body?.cancel();
       await sleep(HOLD_POLL_MS, undefined, { signal: controller.signal });
       res = await request(fmt);
     }
-    if (res.ok && Date.now() - started > 1_000) {
-      req.log.info({ videoId: id, heldMs: Date.now() - started }, "YouTube held the stream back");
+    if (heldSince) spent.heldMs += Date.now() - heldSince;
+    spent.youtubeMs += Date.now() - asked;
+    steps.push(`${fmt.formatId === "direct" ? "direct" : "yt-dlp"} ${res.status}`);
+    if (res.ok && Date.now() - asked > 1_000) {
+      req.log.info({ videoId: id, heldMs: Date.now() - asked }, "YouTube held the stream back");
     }
     return res;
   };
@@ -78,7 +99,10 @@ export async function proxyStream(req: FastifyRequest, reply: FastifyReply, id: 
   // Audio from yt-dlp still refused: on some connections (bot check, VPN) YouTube accepts the resolution and not
   // the bytes. Asking it for the audio directly takes about half a second and isn't held back, so it goes first.
   if (kind === "audio" && fmt.formatId !== "direct" && refused()) {
+    const t = Date.now();
     const direct = await directAudioStream(id);
+    spent.resolveMs += Date.now() - t;
+    steps.push("direct audio asked");
     if (direct) {
       await upstream.body?.cancel();
       fmt = direct;
@@ -92,8 +116,16 @@ export async function proxyStream(req: FastifyRequest, reply: FastifyReply, id: 
     upstream = await fetchServed(fmt);
   }
   if (!upstream.ok || !upstream.body) {
-    req.log.warn({ videoId: id, kind, status: upstream.status, format: fmt.formatId }, "YouTube refused the stream");
+    req.log.warn(
+      { videoId: id, kind, status: upstream.status, format: fmt.formatId, totalMs: Date.now() - started, ...spent, steps: steps.join(", ") },
+      "YouTube refused the stream",
+    );
     throw new HttpError(502, msg("streamRefused", { status: upstream.status }), "maybe_outdated");
+  }
+
+  const totalMs = Date.now() - started;
+  if (totalMs > SLOW_START_MS) {
+    req.log.warn({ videoId: id, kind, totalMs, ...spent, steps: steps.join(", "), range: req.headers.range ?? "" }, "slow stream start");
   }
 
   reply.code(upstream.status);
