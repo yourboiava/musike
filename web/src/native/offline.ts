@@ -36,8 +36,11 @@ const AUTH_KEY = "musike:offline-auth";
 const QUEUE_KEY = "musike:offline-queue";
 const OWNER_KEY = "musike:offline-owner";
 
-/** A change made without the server, to send when it's back. */
-type Change = { method: Writes; args: unknown[]; localId?: string };
+/** A change made without the server, to send when it's back. `tries`: times the server failed on it (5xx). */
+type Change = { method: Writes; args: unknown[]; localId?: string; tries?: number };
+
+/** A change the server keeps failing on (an error of its own, 5xx) is dropped after this many tries, not to hold the rest back forever. */
+const MAX_TRIES = 8;
 
 const WRITES = [
   "addFavorite",
@@ -105,9 +108,16 @@ const MAKES_PLAYLIST = new Set<string>(["createPlaylist", "createRadioPlaylist"]
 
 /** The server didn't answer (as opposed to answering "no"): no network, refused, timed out, or a proxy's 502-504. */
 export function unreachable(e: unknown): boolean {
-  if (e instanceof ApiError) return e.status === 0 || e.status === 502 || e.status === 503 || e.status === 504;
+  if (e instanceof ApiError) {
+    // Not Musike's answer: the reverse proxy's 404 while the container restarts, a captive portal...
+    if (!e.fromServer) return true;
+    return e.status === 0 || e.status === 502 || e.status === 503 || e.status === 504;
+  }
   return (e as Error)?.name !== "AbortError";
 }
+
+/** The server's own trouble, worth trying again later rather than dropping the change: an error, too many requests. */
+const passing = (e: unknown) => e instanceof ApiError && (e.status >= 500 || e.status === 429 || e.status === 408);
 
 function within<T>(p: Promise<T>, ms: number): Promise<T> {
   return Promise.race([p, new Promise<never>((_, reject) => setTimeout(() => reject(new ApiError(0, "timeout")), ms))]);
@@ -162,7 +172,8 @@ export function offlineCapable({ url, server, phone }: Options) {
   const enqueue = (c: Change) => keep([...queued(), c]);
 
   /** Sends the queue in order; stops (keeping the rest) if the server goes away again. Returns how many went. */
-  type Flushed = { sent: number; done: boolean; signedOut?: boolean };
+  /** `stuck`: the server is there but failed on a change (an error of its own): sent again a little later. */
+  type Flushed = { sent: number; done: boolean; signedOut?: boolean; stuck?: boolean };
   let flushing: Promise<Flushed> | null = null;
   /** Sends the queue in order (one flush at a time); done once it's empty, not when the server went away midway. */
   function flush() {
@@ -185,6 +196,12 @@ export function offlineCapable({ url, server, phone }: Options) {
         if (unreachable(e)) return { sent, done: false };
         // Signed out meanwhile (the session ran out): kept until signed in again, not dropped.
         if (e instanceof ApiError && e.status === 401) return { sent, done: false, signedOut: true };
+        // The server in trouble (an error of its own, too busy): this one and the rest wait for the next try. A
+        // change it fails on every time is dropped in the end, not to hold the others back forever.
+        if (passing(e) && (next.tries ?? 0) + 1 < MAX_TRIES) {
+          keep([{ ...next, tries: (next.tries ?? 0) + 1 }, ...queued().slice(1)]);
+          return { sent, done: false, stuck: true };
+        }
         // Refused (a playlist deleted meanwhile on another device...): dropped, the rest goes on.
       }
       // Read again: more may have been queued while this one went. A playlist made offline now has the server's
@@ -271,6 +288,19 @@ export function offlineCapable({ url, server, phone }: Options) {
   }
 
   /** The server is gone: the app goes on from the phone at once, and says so if the quick tries don't bring it back. */
+  let flushTimer = 0;
+  /** With the server there: what's queued (a play it failed on just now, a change it was too busy for) goes a little later. */
+  function flushLater() {
+    window.clearTimeout(flushTimer);
+    flushTimer = window.setTimeout(() => {
+      if (!online || !queued().length) return;
+      void flush().then((r) => {
+        if (r.stuck) flushLater();
+        else if (!r.done && !r.signedOut) wentAway();
+      });
+    }, RETRY_MS);
+  }
+
   function wentAway() {
     if (!online) return;
     online = false;
@@ -313,7 +343,15 @@ export function offlineCapable({ url, server, phone }: Options) {
       }
       // The queue goes first, while the app still writes behind it: the server gets the changes in order.
       const waiting = queued().length;
-      const { sent, done, signedOut } = await flush();
+      const { sent, done, signedOut, stuck } = await flush();
+      if (stuck) {
+        // The server is there and failing on one change: back online, the queue goes again in a while.
+        online = true;
+        since = null;
+        flushLater();
+        changed();
+        return true;
+      }
       if (signedOut) {
         // The server is there, the session isn't: the app asks to sign in, then the rest goes (authStatus).
         online = true;
@@ -329,7 +367,7 @@ export function offlineCapable({ url, server, phone }: Options) {
       online = true;
       since = null;
       // A change that was being written to the copy just now.
-      if (queued().length) void flush().then((r) => r.done || wentAway());
+      if (queued().length) void flush().then((r) => (r.stuck ? flushLater() : r.done || r.signedOut || wentAway()));
       // Back within the quick tries, with nothing sent: nothing to say (nothing was said either).
       if (waiting) toast(t().backSent(sent));
       else if (told || manualTry) toast(t().back);
@@ -386,13 +424,29 @@ export function offlineCapable({ url, server, phone }: Options) {
   for (const k of WRITES) {
     const viaServer = bind(k);
     const viaCopy = (local[k] as (...a: unknown[]) => Promise<unknown>).bind(local);
-    (api as unknown as Record<string, unknown>)[k] = either(viaServer, async (...asked: unknown[]) => {
+    const offline = async (...asked: unknown[]) => {
       // A play keeps the time it was made: the server logs it then, not when it's sent.
       const args = k === "pushHistory" && asked[1] === undefined ? [asked[0], Date.now()] : asked;
       const result = await viaCopy(...args);
       enqueue({ method: k, args, localId: MAKES_PLAYLIST.has(k) ? (result as { id: string }).id : undefined });
       return result;
-    });
+    };
+    const send = either(viaServer, offline);
+    (api as unknown as Record<string, unknown>)[k] =
+      k === "pushHistory"
+        ? // A play is never lost: whatever goes wrong on the server's side (the session ran out, an error), it's kept
+          // and sent again later. Only a track the server can't take at all (400) is let go.
+          async (track: unknown, at: unknown = Date.now()) => {
+            try {
+              return await send(track, at);
+            } catch (e) {
+              if (e instanceof ApiError && e.status === 400) throw e;
+              const kept = await offline(track, at);
+              if (online) flushLater();
+              return kept;
+            }
+          }
+        : send;
   }
 
   // Signed in or not: offline, as the server said last time.

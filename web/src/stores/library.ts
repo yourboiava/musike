@@ -173,7 +173,9 @@ export const useLibrary = create<LibraryState>((set, get) => ({
 
   recordPlay: (track) => {
     set((s) => ({ history: [track, ...s.history.filter((t) => t.id !== track.id)].slice(0, 60), playsVersion: s.playsVersion + 1 }));
-    api.pushHistory(track).catch(() => {});
+    // With the time it was played: sent again (queued offline, or after an answer that got lost), the server knows
+    // it's the same play.
+    api.pushHistory(track, Date.now()).catch(() => {});
   },
 
   playsVersion: 0,

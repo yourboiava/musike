@@ -267,6 +267,8 @@ export function sqliteLibraries(db: Db): { forUser(userId: number): LibraryStore
   const playsMaybeBy = rows(`${PLAY_SUMS} WHERE p.user_id = ? AND (t.artist_id = ? OR t.artist_id IS NULL) GROUP BY p.track_id ${RECENT}`);
   const playsOf = one(`SELECT COUNT(*) AS rows, COALESCE(SUM(count), 0) AS n, COALESCE(MAX(played_at), 0) AS last FROM plays WHERE user_id = ? AND track_id = ?`);
   const playInsert = run(`INSERT INTO plays (user_id, track_id, played_at, count, source) VALUES (?, ?, ?, ?, ?)`);
+  const playSeenStmt = db.prepare(`SELECT 1 FROM plays WHERE user_id = ? AND track_id = ? AND played_at = ? LIMIT 1`);
+  const playSeen = (uid: number, trackId: string, at: number) => playSeenStmt.get(uid, trackId, at) !== undefined;
   const playsClear = run(`DELETE FROM plays WHERE user_id = ?`);
   const toPlay = (r: Row): PlayEntry => ({ track: toTrack(r), count: Number(r.plays), lastPlayed: Number(r.last) });
 
@@ -405,7 +407,9 @@ export function sqliteLibraries(db: Db): { forUser(userId: number): LibraryStore
             history.trim(uid, HISTORY_LIMIT);
             // A play (the app sends it once the track has really played, see the player) enters the history and the log,
             // at the time it was played when given.
-            playInsert(uid, track.id, playedAt(at), 1, "app");
+            // The same play sent twice (queued offline, or sent again after a lost answer) is logged once.
+            const when = playedAt(at);
+            if (at === undefined || !playSeen(uid, track.id, when)) playInsert(uid, track.id, when, 1, "app");
             return history.list(uid);
           }),
 

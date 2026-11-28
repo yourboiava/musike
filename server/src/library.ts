@@ -134,11 +134,17 @@ const url = (v: unknown) => {
 const time = (v: unknown) => (typeof v === "number" && Number.isFinite(v) && v > 0 ? v : Date.now());
 
 /** When a play was made, as a client says: in the last year and not in the future, otherwise now. */
+/**
+ * When a play happened, as the app says (ms), within the last year. A phone's clock a few minutes ahead of the
+ * server's is taken as it is: the same play sent again later (it was queued, or its first answer was lost) must
+ * keep the same time, to be recognized and counted once.
+ */
 export function playedAt(at: unknown, now = Date.now()): number {
   const n = typeof at === "string" && /^\d{1,16}$/.test(at) ? Number(at) : at;
   if (typeof n !== "number" || !Number.isSafeInteger(n)) return now;
-  return n > now || n < now - 366 * 24 * 3600_000 ? now : n;
+  return n > now + CLOCK_SKEW_MS || n < now - 366 * 24 * 3600_000 ? now : n;
 }
+const CLOCK_SKEW_MS = 10 * 60_000;
 
 export function sanitizeTrack(input: unknown): Track {
   const t = (input ?? {}) as Record<string, unknown>;
@@ -616,6 +622,11 @@ export function jsonLibrary(storage: LibraryStorage): LibraryStore {
       // A play (the app sends it once the track has really played, see the player) enters the history and the log.
       const before = lib.plays.find((p) => p.track.id === track.id);
       const when = playedAt(at);
+      // The same play sent twice (queued offline, or sent again after a lost answer): counted once.
+      if (before && at !== undefined && before.lastPlayed === when) {
+        await persist();
+        return lib.history;
+      }
       lib.plays = [
         { track, count: (before?.count ?? 0) + 1, lastPlayed: Math.max(before?.lastPlayed ?? 0, when) },
         ...lib.plays.filter((p) => p.track.id !== track.id),

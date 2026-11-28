@@ -101,7 +101,11 @@ export interface CarSettings {
 }
 
 export class ApiError extends Error {
-  constructor(public status: number, message: string, public code?: ErrorCode) {
+  /**
+   * `fromServer`: Musike itself answered (a JSON error). False when something in between did: a reverse proxy
+   * answering 404 or 502 while the server restarts, a captive portal, a VPN's error page.
+   */
+  constructor(public status: number, message: string, public code?: ErrorCode, public fromServer = false) {
     super(message);
   }
 }

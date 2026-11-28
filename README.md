@@ -744,6 +744,18 @@ In Docker, export a `cookies.txt` into the data volume and set `YTDLP_EXTRA_ARGS
 **"yt-dlp wasn't found"**
 In the desktop app, use **Install** in Settings. For the Node server, install it with `winget install yt-dlp.yt-dlp` or set `YTDLP_PATH`.
 
+**Songs are slow to start with a server, and fine on the phone on its own**
+Through a server, a track is resolved and fetched from YouTube by the server, from its own connection (and its VPN, if it has one), then sent on to you; on its own, the phone fetches it directly. The same Wi-Fi is in both paths, so when only the server is slow, the time goes on the server's side. Every track that takes more than 3 seconds to start is in the server's log, with where the time went:
+
+```bash
+docker compose logs --since 1h musike | grep "slow stream start"
+```
+
+`resolveMs` is resolving the track (yt-dlp, or the direct audio), `heldMs` is YouTube holding the stream back before serving it (common behind VPNs: up to 15 seconds and more), `youtubeMs` YouTube's answer in all. Mostly `heldMs` means the VPN's address: try another server or location of the VPN. Mostly `resolveMs` means yt-dlp is slow there: `MUSIKE_DIRECT_AUDIO=first` starts audio without it.
+
+**Plays made in the car or offline are missing**
+Connected to a server, a play the server can't take right now (out of reach, restarting, the session expired, an error of its own) is kept on the phone and sent when it can be, with the time it was made; sent twice, it still counts once. Only a track the server refuses outright is let go.
+
 **Video takes a while to start**
 Many videos have no combined SD version; the server downloads and merges video and audio before playing (a few seconds the first time, instant after that thanks to the cache).
 

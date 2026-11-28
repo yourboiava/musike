@@ -88,7 +88,7 @@ export function httpBackend(opts: HttpBackendOptions) {
     });
     if (!res.ok) {
       if (body.code === "auth_required" || body.code === "password_change_required") authEvents.listener?.(body.code);
-      throw new ApiError(res.status, body.error ?? getT().player.httpError(res.status), body.code);
+      throw new ApiError(res.status, body.error ?? getT().player.httpError(res.status), body.code, typeof body.error === "string");
     }
     return body as T;
   }
