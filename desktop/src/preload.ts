@@ -16,4 +16,12 @@ contextBridge.exposeInMainWorld("musikeDesktop", {
   connect: (url: string | null) => ipcRenderer.invoke("musike:connect", url),
   /** This computer's own library, to copy into an account on the server. */
   localLibrary: () => ipcRenderer.invoke("musike:local-library"),
+  // Windows taskbar thumbnail controls
+  updateMediaControls: (state: { hasTrack: boolean; playing: boolean; favorite: boolean; labels: { favorite: string; previous: string; play: string; next: string } }) =>
+    ipcRenderer.send("musike:media", state),
+  onMediaAction: (fn: (action: "toggle" | "next" | "previous" | "favorite") => void) => {
+    const handler = (_event: Electron.IpcRendererEvent, action: "toggle" | "next" | "previous" | "favorite") => fn(action);
+    ipcRenderer.on("musike:media-action", handler);
+    return () => ipcRenderer.removeListener("musike:media-action", handler);
+  },
 });

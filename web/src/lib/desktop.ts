@@ -1,4 +1,6 @@
 /** Bridge exposed by the Electron preload script when Musike runs as the desktop app. */
+type MediaAction = "toggle" | "next" | "previous" | "favorite";
+
 interface DesktopBridge {
   platform: string;
   setTheme: (theme: "dark" | "light") => void;
@@ -11,6 +13,8 @@ interface DesktopBridge {
   connect?: (url: string | null) => Promise<{ ok: true } | { error: "invalid" | "unreachable" | "cancelled" }>;
   /** This computer's own library (null when there is none). */
   localLibrary?: () => Promise<unknown>;
+  updateMediaControls?: (state: { hasTrack: boolean; playing: boolean; favorite: boolean; labels: { favorite: string; previous: string; play: string; next: string } }) => void;
+  onMediaAction?: (fn: (action: MediaAction) => void) => () => void;
 }
 
 export const desktop = (window as Window & { musikeDesktop?: DesktopBridge }).musikeDesktop;
